@@ -178,6 +178,61 @@ function createWebhooksTestSuite(stripe) {
         );
       });
 
+      it('should raise a SignatureVerificationError when the v1 value is non-ASCII', async () => {
+        // 64 UTF-16 code units, 65 UTF-8 bytes. timingSafeEqual throws
+        // RangeError unless the byte lengths are checked first.
+        const header = 't=1,v1=' + 'a'.repeat(63) + '\u00e9';
+
+        await expect(
+          constructEventFn('{}', header, SECRET, 0)
+        ).to.be.rejectedWith(
+          StripeSignatureVerificationError,
+          /No signatures found matching the expected signature for payload/
+        );
+      });
+
+      it('should raise a SignatureVerificationError when the v1 value is empty', async () => {
+        // tolerance 0: a false match must not be hidden by the timestamp check.
+        await Promise.all(
+          ['t=1,v1=', 't=1,v1'].map((header) =>
+            expect(
+              constructEventFn('{}', header, SECRET, 0)
+            ).to.be.rejectedWith(
+              StripeSignatureVerificationError,
+              /No signatures found/
+            )
+          )
+        );
+      });
+
+      it('should accept a valid signature when another v1 value is empty', async () => {
+        const header = stripe.webhooks.generateTestHeaderString({
+          payload: EVENT_PAYLOAD_STRING,
+          secret: SECRET,
+        });
+
+        const event = await constructEventFn(
+          EVENT_PAYLOAD_STRING,
+          `${header},v1=`,
+          SECRET
+        );
+        expect(event.id).to.equal(EVENT_PAYLOAD.id);
+
+        const eventWithEmptyFirst = await constructEventFn(
+          EVENT_PAYLOAD_STRING,
+          header.replace('v1=', 'v1=,v1='),
+          SECRET
+        );
+        expect(eventWithEmptyFirst.id).to.equal(EVENT_PAYLOAD.id);
+
+        const eventWithBareScheme = await constructEventFn(
+          EVENT_PAYLOAD_STRING,
+          `${header},v1`,
+          SECRET
+        );
+        expect(eventWithBareScheme.id).to.equal(EVENT_PAYLOAD.id);
+      });
+
       it('should raise a SignatureVerificationError from a valid JSON payload and an invalid signature header', async () => {
         const header = 'bad_header';
         const expected = /No webhook payload was provided/;
