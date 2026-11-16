@@ -96,6 +96,20 @@ function testPlatform(platformFunctions: PlatformFunctions): void {
         );
       });
 
+      it('returns false when UTF-8 byte lengths differ', () => {
+        // Same UTF-16 length; é encodes to two UTF-8 bytes.
+        const left = 'cafe';
+        const right = 'caf\u00e9';
+        expect(left.length).to.equal(right.length);
+        expect(platformFunctions.secureCompare(left, right)).to.equal(false);
+      });
+
+      it('returns true for equal non-ASCII strings', () => {
+        expect(
+          platformFunctions.secureCompare('caf\u00e9', 'caf\u00e9')
+        ).to.equal(true);
+      });
+
       it('throws an error if not given two things to compare', () => {
         expect(() => {
           platformFunctions.secureCompare('potato');
@@ -137,6 +151,13 @@ function testPlatform(platformFunctions: PlatformFunctions): void {
         expect(platformFunctions.secureCompare('potato', 'tomato')).to.equal(
           false
         );
+      });
+
+      it('returns false when UTF-8 byte lengths differ', () => {
+        const left = 'cafe';
+        const right = 'caf\u00e9';
+        expect(left.length).to.equal(right.length);
+        expect(platformFunctions.secureCompare(left, right)).to.equal(false);
       });
 
       it('throws an error if not given two things to compare', () => {

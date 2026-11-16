@@ -112,8 +112,6 @@ export class NodePlatformFunctions extends PlatformFunctions {
       throw new Error('secureCompare must receive two arguments');
     }
 
-    // return early here if buffer lengths are not equal since timingSafeEqual
-    // will throw if buffer lengths are not equal
     if (a.length !== b.length) {
       return false;
     }
@@ -124,6 +122,14 @@ export class NodePlatformFunctions extends PlatformFunctions {
       const textEncoder = new TextEncoder();
       const aEncoded: Uint8Array = textEncoder.encode(a);
       const bEncoded: Uint8Array = textEncoder.encode(b);
+
+      // timingSafeEqual throws RangeError unless the byte lengths match.
+      // String length counts UTF-16 code units, so a non-ASCII character
+      // can make the UTF-8 encodings differ when the strings are the same length.
+      if (aEncoded.byteLength !== bEncoded.byteLength) {
+        return false;
+      }
+
       return crypto.timingSafeEqual(aEncoded, bEncoded);
     }
 
